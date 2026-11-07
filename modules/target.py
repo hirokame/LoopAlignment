@@ -1,6 +1,6 @@
 import numpy as np
 
-# ターゲットネットワーク（固定）
+# target network (fixed)
 class TargetNetwork:
     def __init__(self, dims=[64, 8, 32, 64]):
         self.weights = [
@@ -15,4 +15,4 @@ class TargetNetwork:
     def forward(self, x):
         for W, b in zip(self.weights[:-1], self.biases[:-1]):
             x = np.tanh(x @ W + b)
-        return x @ self.weights[-1] + self.biases[-1]  # 最後は線形出力
+        return x @ self.weights[-1] + self.biases[-1]  # linear output at the last layer

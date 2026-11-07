@@ -8,8 +8,8 @@ class Whittington_Model:
       self.num_batch   = num_batch
       self.f = f
 
-      self.initialize_states() # 活動の初期化
-      self.initialize_weight() # 重みの初期化
+      self.initialize_states() # reset activities
+      self.initialize_weight() # initialize weights
 
   def initialize_states(self):
     self.x   = []
@@ -40,37 +40,37 @@ class Whittington_Model:
       self.x[0] = inputs
       self.x[-1] = target
 
-      # errorの更新
+      # update errors
       for i in range(self.num_module - 1):
           self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-      # F_tの更新
+      # update F_t
       F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e])
 
       for _ in range(num_loop):
         F_prev = F_t.copy()
-        #xの更新
+        #update x
         for i in range(1,self.num_module - 1):
           dx = self.e[i-1] - (self.e[i] @ self.U[i].T) * self.f.deriv(self.x[i])
           self.x[i] -= lr_x * dx
 
-        # errorの更新
+        # update errors
         for i in range(self.num_module - 1):
           self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-        F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) # F_tの更新
-        diff = F_t - F_prev #errorの減少量を計算
+        F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) # update F_t
+        diff = F_t - F_prev #change in error
 
-        # errorの減少量が十分に小さい場合はスキップ
+        # stop early when the change in error is small enough
         if diff < 0:
             lr_x /= 2
         elif abs(diff) < 1e-6:
             break
 
-  def update_weight(self):# 重みの更新
+  def update_weight(self):# weight update
     db=[]
     dU=[]
-    # U,bの更新
+    # update U and b
     for i in range(self.num_module - 1):
         db      .append(np.sum(self.e[i], axis=0) / self.num_batch)
         dU      .append(self.f(self.x[i]).T @ self.e[i] / self.num_batch)
@@ -78,10 +78,10 @@ class Whittington_Model:
         self.b[i] += self.lr_weight * db[i]
 
   def predict(self, input):
-    # 各レイヤーの更新
+    # update each layer
     self.x[0]=input
     for i in range(self.num_module-1):
-      self.x[i+1]=np.dot(self.f(self.x[i]),self.U[i])+self.b[i]                      # (batch_size,細胞数)
+      self.x[i+1]=np.dot(self.f(self.x[i]),self.U[i])+self.b[i]                      # (batch_size, number of cells)
     return self.x[-1]
 
 class LA_model(Whittington_Model):
@@ -132,49 +132,49 @@ class LA_model(Whittington_Model):
     self.x[0] = inputs
     self.x[-1] = target
 
-    # errorの更新
+    # update errors
     for i in range(self.num_module - 1):
       self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-    # F_tの更新
+    # update F_t
     F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e])
 
     for _ in range(num_loop):
       F_prev = F_t.copy()
       
-      # xの更新
+      # update x
       for i in range(1,self.num_module - 1):
         dx = self.e[i-1] - (self.e[i] @ self.U_FB[i].T) * self.f.deriv(self.x[i])
         self.x[i] -= lr_x * dx
 
-      # errorの更新
+      # update errors
       for i in range(self.num_module - 1):
         self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-      F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) # F_tの更新
-      diff = F_t - F_prev #errorの減少量を計算
+      F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) # update F_t
+      diff = F_t - F_prev #change in error
 
-      # errorの減少量が十分に小さい場合はスキップ
+      # stop early when the change in error is small enough
       if diff < 0:
           lr_x /= 2
       elif abs(diff) < 1e-6:
           break
       
-  def update_weight_fixW0(self): # 重みの更新(W0は固定)
-    #U,bの更新 
+  def update_weight_fixW0(self): # weight update (W0 kept fixed)
+    #update U and b 
     for i in range(1,self.num_module - 1):
         db = np.sum(self.e[i], axis=0) / self.num_batch
         dU = self.f(self.x[i]).T @ self.e[i] / self.num_batch
         self.U[i] += self.lr_weight * dU
         self.b[i] += self.lr_weight * db
 
-  # noiseを与える処理
+  # add noise
   def add_noise_FF(self, n_rate, ratio=1):
     for i in range(len(self.U)):
         matrix = self.U[i]
         num_cols = matrix.shape[1]
 
-        # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+        # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
         num_to_modify = max(1, int(1 * num_cols))
         cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -191,7 +191,7 @@ class LA_model(Whittington_Model):
         matrix = self.U_FB[i]
         num_cols = matrix.shape[1]
 
-        # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+        # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
         num_to_modify = max(1, int(1 * num_cols))
         cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -228,37 +228,37 @@ class PCRHL(Whittington_Model):
     self.x[0] = inputs
     self.x[-1] = target
 
-    #errorの更新
+    #update errors
     for i in range(self.num_module - 1):
       self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-    #F_tの更新
+    #update F_t
     F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e])
 
     for _ in range(num_loop):
       F_prev = F_t.copy()
-      #xの更新
+      #update x
       for i in range(1,self.num_module - 1):
         dx = self.e[i-1] - (self.e[i] @ self.U_FB[i].T) * self.f.deriv(self.x[i])
         self.x[i] -= lr_x * dx
 
-      #errorの更新
+      #update errors
       for i in range(self.num_module - 1):
         self.e[i] = self.x[i+1] - (self.f(self.x[i]) @ self.U[i]) - self.b[i]
 
-      F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) #F_tの更新
-      diff = F_t - F_prev #errorの減少量を計算
+      F_t = -np.sum([np.sum(np.square(ei)) for ei in self.e]) #update F_t
+      diff = F_t - F_prev #change in error
 
-      #errorの減少量が十分に小さい場合はスキップ
+      #stop early when the change in error is small enough
       if diff < 0:
           lr_x /= 2
       elif abs(diff) < 1e-6:
           break
-  def update_weight(self):#重みの更新
+  def update_weight(self):#weight update
     db=[]
     dU=[]
     dU_rand = []
-    #U,bの更新
+    #update U and b
     for i in range(self.num_module - 1):
         db      .append(np.sum(self.e[i], axis=0) / self.num_batch)
         dU      .append(self.f(self.x[i]).T @ self.e[i] / self.num_batch)
@@ -267,13 +267,13 @@ class PCRHL(Whittington_Model):
         self.U_FB[i] += self.lr_weight * dU_rand[i]
         self.b[i] += self.lr_weight * db[i]
 
-  # noiseを与える処理
+  # add noise
   def add_noise_FF(self, n_rate, ratio=1):
     for i in range(len(self.U)):
         matrix = self.U[i]
         num_cols = matrix.shape[1]
 
-        # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+        # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
         num_to_modify = max(1, int(1 * num_cols))
         cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -290,7 +290,7 @@ class PCRHL(Whittington_Model):
         matrix = self.U_FB[i]
         num_cols = matrix.shape[1]
 
-        # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+        # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
         num_to_modify = max(1, int(1 * num_cols))
         cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -312,8 +312,8 @@ class dual_LA_model(Whittington_Model):
       self.num_batch   = num_batch
       self.f = f
 
-      self.initialize_states() # 活動の初期化
-      self.initialize_weight() # 重みの初期化
+      self.initialize_states() # reset activities
+      self.initialize_weight() # initialize weights
   
   def initialize_states(self):
     self.x_PC1   = []
@@ -349,15 +349,15 @@ class dual_LA_model(Whittington_Model):
     return energy
 
   def save_cossim1(self):
-      # U_PC1[1] と PC2の行列積を取得
+      # PC1 shared-layer FF weight, and the effective FB through the relay and PC2
       U   = np.array(self.U[2].T).reshape(-1)
       U_FB   = np.array(self.U[3] @ self.U[4] @ self.U[5]).reshape(-1)
 
-      # 正規化
+      # normalize
       U_norm = U / (np.linalg.norm(U) + 1e-10)
       U_FB_norm = U_FB / (np.linalg.norm(U_FB) + 1e-10)
 
-      # コサイン類似度
+      # cosine similarity
       cos_sim = np.sum(U_norm * U_FB_norm)
       cos_sim = np.clip(cos_sim, -1.0, 1.0)
 
@@ -380,7 +380,7 @@ class dual_LA_model(Whittington_Model):
     self.x_PC1[0 ] = inputs
     self.x_PC1[-1] = target
 
-    # PC1 errorの更新
+    # update PC1 errors
     self.e_PC1[0] = self.x_PC1[1] - (self.x_PC1[0] @ self.U[0])
     self.e_PC1[1] = self.x_PC1[2] - (self.x_PC1[1] @ self.U[2])
 
@@ -405,7 +405,7 @@ class dual_LA_model(Whittington_Model):
     self.x_PC2[0 ] = inputs
     self.x_PC2[-1] = target
 
-    # PC2 errorの更新
+    # update PC2 errors
     self.e_PC2[0] = self.x_PC2[1] - (self.x_PC2[0] @ self.U[1])
     self.e_PC2[1] = self.x_PC2[2] - (self.x_PC2[1] @ self.U[4])
 
@@ -437,12 +437,12 @@ class dual_LA_model(Whittington_Model):
     self.x_PC2[2] = self.x_PC2[1] @ self.U[4]
     return self.x_PC2[-1]
 
-  # noiseを与える処理
+  # add noise
   def add_noise_FF(self, n_rate):
     matrix = self.U[2]
     num_cols = matrix.shape[1]
 
-    # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+    # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
     num_to_modify = max(1, int(1 * num_cols))
     cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -458,7 +458,7 @@ class dual_LA_model(Whittington_Model):
     matrix = self.U[4]
     num_cols = matrix.shape[1]
 
-    # ノイズを加える列のインデックスをランダムに選ぶ（全体の10%など）
+    # randomly choose the columns that receive noise (the factor below is the fraction; 1 = all columns)
     num_to_modify = max(1, int(1 * num_cols))
     cols_to_modify = np.random.choice(num_cols, size=num_to_modify, replace=False)
 
@@ -478,7 +478,7 @@ class BP():
       self.num_batch   = num_batch
       self.f = f
 
-      self.initialize_weight() # 重みの初期化
+      self.initialize_weight() # initialize weights
 
   def get_name(self):
      name = "BP"

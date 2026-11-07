@@ -2,7 +2,7 @@ import numpy as np
 
 def expand_one_hot_vector(numbers,num_batch,out_put_size):  #(20,1),<class 'numpy.ndarray'>
     expanded_vector = np.zeros((num_batch, out_put_size))       #(20,784)
-    batch_ones      = np.ones(num_batch)*(out_put_size // 10)   #リストみたいな挙動になっている。よくわからない。
+    batch_ones      = np.ones(num_batch)*(out_put_size // 10)   #array of length num_batch; each entry is the block width out_put_size // 10
     start_index     = numbers * batch_ones                                    #(20,)
     end_index       = start_index + batch_ones                                #(20,)
     for idx in range(num_batch):
